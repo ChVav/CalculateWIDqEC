@@ -1,7 +1,7 @@
 # PMR calculation main work function
 # contact: charlottevavourakis@gmail.com
-# under development for Shiny App, Last update 16 August 2022
-# will have to double-check naming for standard and controls 
+# under development for Shiny App version for TirolPath
+# Last update 21 August 2022
 
 calculate_pmr <- function(data,#experimentname,
                           threshold_COL2A1=35,
@@ -22,16 +22,16 @@ calculate_pmr <- function(data,#experimentname,
   
   # Generate standard curve
   plot <- data %>%
-    filter(Target == "COL2A1" & ((Sample %in% c("STD1", "STD2", "STD3","STD4") | 
-                                    (Sample %in% c("STD_1", "STD_2", "STD_3", "STD_4")) | 
-                                    (Sample %in% c("Std 1", "Std 2", "Std 3", "Std 4")) | 
-                                    (Sample %in% c("Std_1", "Std_2", "Std_3", "Std_4")) | 
-                                    (Sample %in% c("Std. 1", "Std. 2", "Std. 3", "Std. 4"))))) %>%
-    mutate(x = case_when(Sample %in% c("STD1", "STD_1", "Std 1", "Std_1", "Std. 1") ~ 6, # concentration = log10(copy numbers/5uL)
-                         Sample %in% c("STD2", "STD_2", "Std 2", "Std_2", "Std. 2") ~ 5,
-                         Sample %in% c("STD3", "STD_3", "Std 3", "Std_3", "Std. 3") ~ 4,
-                         Sample %in% c("STD4", "STD_4", "Std 4", "Std_4", "Std. 4") ~ 3)) %>%
-    mutate(ct = ifelse(Cq == "Undetermined", NA, as.numeric(Cq)))
+    filter(Target.Name == "COL2A1" & ((Sample.Name %in% c("STD1", "STD2", "STD3","STD4") | 
+                                    (Sample.Name %in% c("STD_1", "STD_2", "STD_3", "STD_4")) | 
+                                    (Sample.Name %in% c("Std 1", "Std 2", "Std 3", "Std 4")) | 
+                                    (Sample.Name %in% c("Std_1", "Std_2", "Std_3", "Std_4")) | 
+                                    (Sample.Name %in% c("Std. 1", "Std. 2", "Std. 3", "Std. 4"))))) %>%
+    mutate(x = case_when(Sample.Name %in% c("STD1", "STD_1", "Std 1", "Std_1", "Std. 1") ~ 6, # concentration = log10(copy numbers/5uL)
+                         Sample.Name %in% c("STD2", "STD_2", "Std 2", "Std_2", "Std. 2") ~ 5,
+                         Sample.Name %in% c("STD3", "STD_3", "Std 3", "Std_3", "Std. 3") ~ 4,
+                         Sample.Name %in% c("STD4", "STD_4", "Std 4", "Std_4", "Std. 4") ~ 3)) %>%
+    mutate(ct = ifelse(CT == "Undetermined", NA, as.numeric(CT)))
   
   fit <- lm(ct ~ x, data = plot)
   anno <- paste0("R2 = ", signif(summary(fit)$r.squared, 3),
@@ -51,7 +51,7 @@ calculate_pmr <- function(data,#experimentname,
                 se = FALSE,
                 alpha = 0.3,
                 colour = "gray40") +
-    geom_point(aes(colour = Sample),
+    geom_point(aes(colour = Sample.Name),
                size = 0.75) +
     theme(legend.title = element_blank(),
           legend.position = "top",
@@ -79,44 +79,44 @@ calculate_pmr <- function(data,#experimentname,
   
   # reformat data in results file based on thresholds and replication ----
   
-  # Carry on with Cq means
+  # Carry on with CT means
   data <- data %>%
     mutate(rep = case_when(grepl("A|C|E|G|I|K|M|O", Well.Position) == TRUE ~ 1,
                            grepl("B|D|F|H|J|L|N|P", Well.Position) == TRUE ~ 2)) %>%
-    mutate(ct = as.numeric(ifelse(Cq == "Undetermined", NA, Cq)))
+    mutate(ct = as.numeric(ifelse(CT == "Undetermined", NA, CT)))
   
   # collect target and sample overviews
-  targets <- unique(data$Target)
+  targets <- unique(data$Target.Name)
   targets2 <- targets[!targets %in% "COL2A1"]
-  samples <- unique(data$Sample)
+  samples <- unique(data$Sample.Name)
   
   # For each rep evaluate COL2A1 and add a column PASS/FAIL for filtering data
   df <- NULL
   for (s in samples) {
     subset1 <- data %>%
-      filter(Sample==s,
+      filter(Sample.Name==s,
              rep==1,
-             Target=="COL2A1")
+             Target.Name=="COL2A1")
     subset1 <- subset1 %>%
       mutate(COL2A1_check =
                case_when( 
       is.na(ct) | ct > threshold_COL2A1 ~ "FAIL", TRUE ~ "PASS")) %>%
-      dplyr::select(Sample,rep,COL2A1_check)
+      dplyr::select(Sample.Name,rep,COL2A1_check)
     df <- rbind(df,subset1)
     
     subset2 <- data %>%
-      filter(Sample==s,
+      filter(Sample.Name==s,
              rep==2,
-             Target=="COL2A1")
+             Target.Name=="COL2A1")
     subset2 <- subset2 %>%
       mutate(COL2A1_check = 
                case_when( 
       is.na(ct) | ct > threshold_COL2A1 ~ "FAIL", TRUE ~ "PASS")) %>%
-      dplyr::select(Sample,rep,COL2A1_check)
+      dplyr::select(Sample.Name,rep,COL2A1_check)
     df <- rbind(df,subset2)
   }
   
-  data <- left_join(data, df, by=c("Sample","rep"))
+  data <- left_join(data, df, by=c("Sample.Name","rep"))
   
   # When both reps of a sample are undetermined or above the set threshold for COL2A1,
   # DNA input for this sample was too low, and no PMR could be calculated.
@@ -130,32 +130,32 @@ calculate_pmr <- function(data,#experimentname,
   for (s in samples){
     for(t in targets){
       tmp <- data %>%
-        filter(Sample == s & Target == t) %>%
-        dplyr::select(Sample, rep, ct, COL2A1_check)
+        filter(Sample.Name == s & Target.Name == t) %>%
+        dplyr::select(Sample.Name, rep, ct, COL2A1_check)
       
       if(t == "COL2A1" & all(tmp$COL2A1_check=="FAIL")){
         # if target is COL2A1 and both reps fail, sample should be listed under low_input_fail
-        x <- data.frame(sample = tmp$Sample, COL2A1_Ct = tmp$ct)
+        x <- data.frame(sample = tmp$Sample.Name, COL2A1_Ct = tmp$ct)
         low_input_fail <- rbind(low_input_fail, x)
       }
       
       if(any(is.na(tmp$ct)) && any(!is.na(tmp$ct))){
         # Carry one Ct value forward
         und <- sum(is.na(tmp$ct))
-        ind1 <- na.omit(data$Sample == s & data$Target == t)
+        ind1 <- na.omit(data$Sample.Name == s & data$Target.Name == t)
         ct <- ifelse(und < 2, na.omit(tmp$ct), NA)
         data[ind1,]$ct <- ct
         
         if(t == "COL2A1"){
           # reprocessing required
-          x <- data.frame(sample = tmp$Sample[is.na(tmp$ct)],
+          x <- data.frame(sample = tmp$Sample.Name[is.na(tmp$ct)],
                           rep = tmp$rep[is.na(tmp$ct)],
                           target = t,
                           `COL2A1_check (this replicate)` = tmp$COL2A1_check[is.na(tmp$ct)])
           reprocess_needed <- rbind(reprocess_needed,x)
         } else {
           # reprocessing recommended
-          x <- data.frame(sample = tmp$Sample[is.na(tmp$ct)],
+          x <- data.frame(sample = tmp$Sample.Name[is.na(tmp$ct)],
                           rep = tmp$rep[is.na(tmp$ct)],
                           target = t,
                           `COL2A1_check (this replicate)` = tmp$COL2A1_check[is.na(tmp$ct)])
@@ -166,14 +166,14 @@ calculate_pmr <- function(data,#experimentname,
   }
   
   data1 <- data %>%
-    pivot_wider(id_cols = Sample,
-                names_from = Target,
+    pivot_wider(id_cols = Sample.Name,
+                names_from = Target.Name,
                 values_from = ct,
                 values_fn = mean)
   
   data2 <- data %>%
-    pivot_wider(id_cols = Sample,
-                names_from = Target,
+    pivot_wider(id_cols = Sample.Name,
+                names_from = Target.Name,
                 values_from = ct,
                 values_fn = sd)
 
@@ -194,7 +194,7 @@ calculate_pmr <- function(data,#experimentname,
   
   # Fully methylated DNA (SSS1 or gBlock) - only gBlock implemented
   gblock <- data1 %>%
-    filter(Sample %in% c("gBlock", "gBLOCK", "gBlock (+)")) 
+    filter(Sample.Name %in% c("PosCo","gBlock", "gBLOCK", "gBlock (+)")) 
   
   # For each ref gene divide normalized input sample by normalized input fully methylated DNA *100
   results <- data1
@@ -207,14 +207,14 @@ calculate_pmr <- function(data,#experimentname,
   }
   
   results <- results %>%
-    select(Sample, all_of(targets2))
+    select(Sample.Name, all_of(targets2))
   results[is.na(results)] <- 0 # set all NAs to 0
   
   # Calculate concentration input DNA based on COL2A mean Ct
   conc_input <- data1 %>% 
     as.data.frame() %>%
     mutate(input_conc = (data1$COL2A1 - intercept)/slope) %>%
-    select(Sample, input_conc) %>% droplevels
+    select(Sample.Name, input_conc) %>% droplevels
   
   # Calculate WID-qEC
   targets_qEC <- c("GYPC1","GYPC2","ZSCAN12")
@@ -231,16 +231,16 @@ calculate_pmr <- function(data,#experimentname,
   results <- as.data.frame(results)
   
   data1 <- data1 %>%
-    select(Sample, COL2A1, all_of(targets2)) %>%
+    select(Sample.Name, COL2A1, all_of(targets2)) %>%
     as.data.frame()
   
   data2 <- data2 %>%
-    select(Sample, COL2A1, all_of(targets2)) %>%
+    select(Sample.Name, COL2A1, all_of(targets2)) %>%
     as.data.frame()
   
   list_out[[2]] <- results #PMR + WIDqEC + WIDqEC outcome
-  list_out[[3]] <- data1 #mean Cq
-  list_out[[4]] <- data2 #stdev Cq
+  list_out[[3]] <- data1 #mean CT
+  list_out[[4]] <- data2 #stdev CT
   list_out[[5]] <- conc_input #log(copy number/5uL)
   list_out[[6]] <- low_input_fail #samples for which COL2A1 failed in both reps, should have negative controls
 

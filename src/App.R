@@ -27,7 +27,7 @@ ui <- fluidPage(
     sidebarPanel(
       fileInput("file1", "Choose Results Analysis File", # Input: Select a file ----
                 multiple = FALSE,
-                accept = c(".csv")),
+                accept = c(".txt")),
       tableOutput("resultsQuantstudio"), # for display uploaded data
       tags$hr(), # Horizontal line ----
       downloadButton("download", "Download PMR Result File") #Download button
@@ -48,11 +48,12 @@ server <- function(input, output) {
     
     #read in inputfiles
     data <- read.table(file = input$file1$datapath,
-                        sep = ",",
+                        sep = "\t",
+                        skip = 47,
                         header = TRUE)
     
     # ensure sample IDs are in correct format
-    data$Sample <- as.character(data$Sample)
+    data$Sample.Name <- as.character(data$Sample.Name)
     
     # calculate PMR
     results <- calculate_pmr(data)
@@ -63,7 +64,8 @@ server <- function(input, output) {
   output$resultsQuantstudio <- renderTable({
     req(input$file1)
     data <- read.table(file = input$file1$datapath,
-                       sep = ",",
+                       sep = "\t",
+                       skip = 47,
                        header = TRUE)
     head(data)[,1:6]
   })
@@ -93,11 +95,11 @@ server <- function(input, output) {
       wb <- createWorkbook()
       
       addWorksheet(wb, "PMR Values")
-      writeDataTable(wb = wb, sheet = 1, x = myResults()[[2]], rowNames=FALSE) #?PMRs
+      writeDataTable(wb = wb, sheet = 1, x = myResults()[[2]], rowNames=FALSE) #PMRs
       addWorksheet(wb, "Cq mean")
-      writeDataTable(wb = wb, sheet = 2, x = myResults()[[3]], rowNames=FALSE) #?mean Cq
+      writeDataTable(wb = wb, sheet = 2, x = myResults()[[3]], rowNames=FALSE) #mean Cq
       addWorksheet(wb, "Cq SD")
-      writeDataTable(wb = wb, sheet = 3, x = myResults()[[4]], rowNames=FALSE) #?Cq stdev
+      writeDataTable(wb = wb, sheet = 3, x = myResults()[[4]], rowNames=FALSE) #Cq stdev
       addWorksheet(wb, "Input conc")
       writeDataTable(wb=wb, sheet = 4, x = myResults()[[5]], rowNames=FALSE) #log(copy number/5uL)
       addWorksheet(wb, "low DNA input")
@@ -111,8 +113,8 @@ server <- function(input, output) {
       
       # save final results to temporary dir
       final <- myResults()[[2]] %>%
-        filter(!Sample %in% c("STD1","STD2","STD3","STD4","gBlock","H2O")) %>%
-        select(Sample, WIDqEC, WIDqEC_test)
+        filter(!Sample.Name %in% c("STD_1","STD_2","STD_3","STD_4","PosCo","NTC_H2O")) %>%
+        select(Sample.Name, WIDqEC, WIDqEC_test)
       write.csv(final, file=paste0(temp_dir, "/", "final_results.csv"), row.names=FALSE)
       
       # zip up temporary dir to file
