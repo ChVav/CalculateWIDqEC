@@ -222,14 +222,24 @@ calculate_pmr <- function(data,#experimentname,
     results <- results %>%
     mutate(WIDqEC = (GYPC1 + GYPC2 + ZSCAN12)) # calculate sumPMR for WID-qEC
     results <- results %>% 
-      mutate(WIDqEC_test = case_when(results$WIDqEC < qEC_threshold1 ~ "low risk EC/CIN",
-                                     results$WIDqEC >= qEC_threshold1 & results$WIDqEC <= qEC_threshold2 ~ "high risk EC/CIN",
-                                     results$WIDqEC > qEC_threshold2 ~ "very high risk EC/CIN"))
+      mutate(WIDqEC_test = case_when(results$WIDqEC < qEC_threshold1 ~ "geringes Risiko fuer ein Endometrium- oder Zervixkarzinom",
+                                     results$WIDqEC >= qEC_threshold1 & results$WIDqEC <= qEC_threshold2 ~ "hohes Risiko fuer ein Endometrium- oder Zervixkarzinom",
+                                     results$WIDqEC > qEC_threshold2 ~ "sehr hohes Risiko fuer ein Endometrium- oder Zervixkarzinom"))
+  }
+  
+  
+  # samples for which both reps COL2A1 failed, PMR should not be 0, but should be NA
+  samples_failed <- low_input_fail %>% filter(!sample == "NTC_H2O") %>% unique() %>% select(sample) %>% as.character()
+  
+  if(!is_empty(low_input_fail)){
+    for (i in 2:(length(targets2)+3)){
+      for (j in 1:length(samples_failed)){
+        results[results$Sample.Name==samples_failed[j],i]<- NA
+      }
+    }
   }
 
   # Save results to list ---
-  results <- as.data.frame(results)
-  
   data1 <- data1 %>%
     select(Sample.Name, COL2A1, all_of(targets2)) %>%
     as.data.frame()
@@ -255,6 +265,27 @@ calculate_pmr <- function(data,#experimentname,
   } else {
     list_out[[8]] <- as.data.frame("none")
   }
+  
+  # make the final summary
+  final <- results %>%
+    filter(!Sample.Name %in% c("STD_1","STD_2","STD_3","STD_4","PosCo","NTC_H2O")) %>%
+    select(Sample.Name, WIDqEC, WIDqEC_test)
+  final$WIDqEC <- round(final$WIDqEC, digits=3)
+  
+  samples <- samples[!samples %in% c("STD_1","STD_2","STD_3","STD_4","PosCo","NTC_H2O")]
+  
+  QC <- data.frame(Sample.Name = samples)
+  QC <- QC %>%
+    mutate(QC=case_when(
+      Sample.Name %in% low_input_fail$sample ~ "Insufficient DNA", #COL2A1 did not amplify in any of the reps 
+      Sample.Name %in% list_out[[7]][,1] ~ "Reprocessing recommended, insufficient DNA in one rep", # samples for which for only one of two reps COL2A1 failed
+      Sample.Name %in% list_out[[8]][,1] ~ "Some targets only amplified in one of the reps",
+      TRUE ~ "PASS" #all ok
+      ))
+   
+  final <- full_join(final,QC)
+  
+  list_out[[9]] <- final #information in final csv file
   
   return(list_out)
 }

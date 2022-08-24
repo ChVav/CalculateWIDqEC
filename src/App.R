@@ -111,11 +111,8 @@ server <- function(input, output) {
 
       saveWorkbook(wb, paste0(temp_dir, "/","batch_results.xlsx"))
       
-      # save final results to temporary dir
-      final <- myResults()[[2]] %>%
-        filter(!Sample.Name %in% c("STD_1","STD_2","STD_3","STD_4","PosCo","NTC_H2O")) %>%
-        select(Sample.Name, WIDqEC, WIDqEC_test)
-      write.csv(final, file=paste0(temp_dir, "/", "final_results.csv"), row.names=FALSE)
+      # save final result summary separately to temporary dir
+      write.csv(myResults()[[9]], file=paste0(temp_dir, "/", "final_results.csv"), row.names=FALSE)
       
       # zip up temporary dir to file
       zip::zip(
