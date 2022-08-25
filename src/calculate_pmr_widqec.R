@@ -222,9 +222,9 @@ calculate_pmr <- function(data,#experimentname,
     results <- results %>%
     mutate(WIDqEC = (GYPC1 + GYPC2 + ZSCAN12)) # calculate sumPMR for WID-qEC
     results <- results %>% 
-      mutate(WIDqEC_test = case_when(results$WIDqEC < qEC_threshold1 ~ "geringes Risiko fuer ein Endometrium- oder Zervixkarzinom",
-                                     results$WIDqEC >= qEC_threshold1 & results$WIDqEC <= qEC_threshold2 ~ "hohes Risiko fuer ein Endometrium- oder Zervixkarzinom",
-                                     results$WIDqEC > qEC_threshold2 ~ "sehr hohes Risiko fuer ein Endometrium- oder Zervixkarzinom"))
+      mutate(WIDqEC_test = case_when(results$WIDqEC < qEC_threshold1 ~ "geringes Risiko für ein Endometrium- oder Zervixkarzinom",
+                                     results$WIDqEC >= qEC_threshold1 & results$WIDqEC <= qEC_threshold2 ~ "hohes Risiko für ein Endometrium- oder Zervixkarzinom",
+                                     results$WIDqEC > qEC_threshold2 ~ "sehr hohes Risiko für ein Endometrium- oder Zervixkarzinom"))
   }
   
   

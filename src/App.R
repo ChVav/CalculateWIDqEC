@@ -112,7 +112,10 @@ server <- function(input, output) {
       saveWorkbook(wb, paste0(temp_dir, "/","batch_results.xlsx"))
       
       # save final result summary separately to temporary dir
-      write.csv(myResults()[[9]], file=paste0(temp_dir, "/", "final_results.csv"), row.names=FALSE)
+      write.csv(myResults()[[9]], 
+                file=paste0(temp_dir, "/", "final_results.csv"), 
+                row.names=FALSE, 
+                fileEncoding = "UTF-8")
       
       # zip up temporary dir to file
       zip::zip(
