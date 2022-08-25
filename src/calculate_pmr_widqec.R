@@ -206,6 +206,7 @@ calculate_pmr <- function(data,#experimentname,
     results[varname] <- (data1[calcname]/div_block)*100
   }
   
+  results <- as.data.frame(results)
   results <- results %>%
     select(Sample.Name, all_of(targets2))
   results[is.na(results)] <- 0 # set all NAs to 0
@@ -229,9 +230,8 @@ calculate_pmr <- function(data,#experimentname,
   
   
   # samples for which both reps COL2A1 failed, PMR should not be 0, but should be NA
-  samples_failed <- low_input_fail %>% filter(!sample == "NTC_H2O") %>% unique() %>% select(sample) %>% as.character()
-  
   if(!is_empty(low_input_fail)){
+    samples_failed <- low_input_fail %>% filter(!sample == "NTC_H2O") %>% unique() %>% select(sample) %>% as.character()
     for (i in 2:(length(targets2)+3)){
       for (j in 1:length(samples_failed)){
         results[results$Sample.Name==samples_failed[j],i]<- NA
@@ -248,11 +248,17 @@ calculate_pmr <- function(data,#experimentname,
     select(Sample.Name, COL2A1, all_of(targets2)) %>%
     as.data.frame()
   
+ 
+  
   list_out[[2]] <- results #PMR + WIDqEC + WIDqEC outcome
   list_out[[3]] <- data1 #mean CT
   list_out[[4]] <- data2 #stdev CT
   list_out[[5]] <- conc_input #log(copy number/5uL)
-  list_out[[6]] <- low_input_fail #samples for which COL2A1 failed in both reps, should have negative controls
+  if(is_empty(low_input_fail)){
+    list_out[[6]] <- as.data.frame("you have some amplification in the NTC_H2O")
+  } else{
+    list_out[[6]] <- low_input_fail #samples for which COL2A1 failed in both reps, should have negative controls
+  }
 
   if(!is_empty(reprocess_needed)){ # samples for which for only one of two reps COL2A1 failed
     list_out[[7]] <- reprocess_needed
@@ -275,14 +281,23 @@ calculate_pmr <- function(data,#experimentname,
   samples <- samples[!samples %in% c("STD_1","STD_2","STD_3","STD_4","PosCo","NTC_H2O")]
   
   QC <- data.frame(Sample.Name = samples)
+  
+  if(!is_empty(low_input_fail)){
   QC <- QC %>%
     mutate(QC=case_when(
-      Sample.Name %in% low_input_fail$sample ~ "Insufficient DNA", #COL2A1 did not amplify in any of the reps 
+     Sample.Name %in% low_input_fail$sample ~ "Insufficient DNA", #COL2A1 did not amplify in any of the reps 
       Sample.Name %in% list_out[[7]][,1] ~ "Reprocessing recommended, insufficient DNA in one rep", # samples for which for only one of two reps COL2A1 failed
       Sample.Name %in% list_out[[8]][,1] ~ "Some targets only amplified in one of the reps",
       TRUE ~ "PASS" #all ok
-      ))
-   
+    ))} else{
+      QC <- QC %>%
+        mutate(QC=case_when(
+          Sample.Name %in% list_out[[7]][,1] ~ "Reprocessing recommended, insufficient DNA in one rep", # samples for which for only one of two reps COL2A1 failed
+          Sample.Name %in% list_out[[8]][,1] ~ "Some targets only amplified in one of the reps",
+          TRUE ~ "PASS" #all ok
+        ))
+    }
+  
   final <- full_join(final,QC)
   
   list_out[[9]] <- final #information in final csv file
