@@ -223,9 +223,9 @@ calculate_pmr <- function(data,#experimentname,
     results <- results %>%
     mutate(WIDqEC = (GYPC1 + GYPC2 + ZSCAN12)) # calculate sumPMR for WID-qEC
     results <- results %>% 
-      mutate(WIDqEC_test = case_when(results$WIDqEC < qEC_threshold1 ~ "geringes Risiko für ein Endometrium- oder Zervixkarzinom",
-                                     results$WIDqEC >= qEC_threshold1 & results$WIDqEC <= qEC_threshold2 ~ "hohes Risiko für ein Endometrium- oder Zervixkarzinom",
-                                     results$WIDqEC > qEC_threshold2 ~ "sehr hohes Risiko für ein Endometrium- oder Zervixkarzinom"))
+      mutate(WIDqEC_interpret = case_when(results$WIDqEC < qEC_threshold1 ~ "< 0.03: geringes Risiko für ein Endometrium- oder Zervixkarzinom",
+                                     results$WIDqEC >= qEC_threshold1 & results$WIDqEC <= qEC_threshold2 ~ "0.03 - 0.63: hohes Risiko für ein Endometrium- oder Zervixkarzinom",
+                                     results$WIDqEC > qEC_threshold2 ~ "> 0.63: sehr hohes Risiko für ein Endometrium- oder Zervixkarzinom"))
   }
   
   
@@ -275,25 +275,26 @@ calculate_pmr <- function(data,#experimentname,
   # make the final summary
   final <- results %>%
     filter(!Sample.Name %in% c("STD_1","STD_2","STD_3","STD_4","PosCo","NTC_H2O")) %>%
-    select(Sample.Name, WIDqEC, WIDqEC_test)
+    select(Sample.Name, WIDqEC, WIDqEC_interpret) %>%
+    dplyr::rename(SampleName = Sample.Name)
   final$WIDqEC <- round(final$WIDqEC, digits=3)
   
   samples <- samples[!samples %in% c("STD_1","STD_2","STD_3","STD_4","PosCo","NTC_H2O")]
   
-  QC <- data.frame(Sample.Name = samples)
+  QC <- data.frame(SampleName = samples)
   
   if(!is_empty(low_input_fail)){
   QC <- QC %>%
     mutate(QC=case_when(
-     Sample.Name %in% low_input_fail$sample ~ "Insufficient DNA", #COL2A1 did not amplify in any of the reps 
-      Sample.Name %in% list_out[[7]][,1] ~ "Reprocessing recommended, insufficient DNA in one rep", # samples for which for only one of two reps COL2A1 failed
-      Sample.Name %in% list_out[[8]][,1] ~ "Some targets only amplified in one of the reps",
+     SampleName %in% low_input_fail$sample ~ "Insufficient DNA", #COL2A1 did not amplify in any of the reps 
+      SampleName %in% list_out[[7]][,1] ~ "Reprocessing recommended, insufficient DNA in one rep", # samples for which for only one of two reps COL2A1 failed
+      SampleName %in% list_out[[8]][,1] ~ "Some targets only amplified in one of the reps",
       TRUE ~ "PASS" #all ok
     ))} else{
       QC <- QC %>%
         mutate(QC=case_when(
-          Sample.Name %in% list_out[[7]][,1] ~ "Reprocessing recommended, insufficient DNA in one rep", # samples for which for only one of two reps COL2A1 failed
-          Sample.Name %in% list_out[[8]][,1] ~ "Some targets only amplified in one of the reps",
+          SampleName %in% list_out[[7]][,1] ~ "Reprocessing recommended, insufficient DNA in one rep", # samples for which for only one of two reps COL2A1 failed
+          SampleName %in% list_out[[8]][,1] ~ "Some targets only amplified in one of the reps",
           TRUE ~ "PASS" #all ok
         ))
     }
