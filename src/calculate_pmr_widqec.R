@@ -13,7 +13,7 @@ calculate_pmr <- function(data,#experimentname,
   
   # WID-qEC thresholds
   qEC_threshold1 <- 0.03
-  qEC_threshold2 <- 0.63
+  #qEC_threshold2 <- 0.63
   
   # initialize list so multiple objects can be returned from function ----
   list_out <- list()
@@ -223,11 +223,9 @@ calculate_pmr <- function(data,#experimentname,
     results <- results %>%
     mutate(WIDqEC = (GYPC1 + GYPC2 + ZSCAN12)) # calculate sumPMR for WID-qEC
     results <- results %>% 
-      mutate(WIDqEC_interpret = case_when(results$WIDqEC < qEC_threshold1 ~ "< 0.03: geringes Risiko für ein Endometrium- oder Zervixkarzinom",
-                                     results$WIDqEC >= qEC_threshold1 & results$WIDqEC <= qEC_threshold2 ~ "0.03 - 0.63: hohes Risiko für ein Endometrium- oder Zervixkarzinom",
-                                     results$WIDqEC > qEC_threshold2 ~ "> 0.63: sehr hohes Risiko für ein Endometrium- oder Zervixkarzinom"))
+      mutate(WIDqEC_interpret = case_when(results$WIDqEC >= qEC_threshold1 ~ "Positiv",
+                                     TRUE ~ "Negativ"))
   }
-  
   
   # samples for which both reps COL2A1 failed, PMR should not be 0, but should be NA
   if(!is_empty(low_input_fail)){
@@ -247,8 +245,6 @@ calculate_pmr <- function(data,#experimentname,
   data2 <- data2 %>%
     select(Sample.Name, COL2A1, all_of(targets2)) %>%
     as.data.frame()
-  
- 
   
   list_out[[2]] <- results #PMR + WIDqEC + WIDqEC outcome
   list_out[[3]] <- data1 #mean CT
