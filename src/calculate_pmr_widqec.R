@@ -221,7 +221,7 @@ calculate_pmr <- function(data,#experimentname,
   targets_qEC <- c("GYPC1","GYPC2","ZSCAN12")
   if(all(targets_qEC %in% targets)){
     results <- results %>%
-    mutate(WIDqEC = (GYPC1 + GYPC2 + ZSCAN12)) # calculate sumPMR for WID-qEC
+    mutate(WIDqEC = round((GYPC1 + GYPC2 + ZSCAN12), digits=3)) # calculate sumPMR for WID-qEC
     results <- results %>% 
       mutate(WIDqEC_interpret = case_when(results$WIDqEC >= qEC_threshold1 ~ "Positiv",
                                      TRUE ~ "Negativ"))
@@ -273,7 +273,7 @@ calculate_pmr <- function(data,#experimentname,
     filter(!Sample.Name %in% c("STD_1","STD_2","STD_3","STD_4","PosCo","NTC_H2O")) %>%
     select(Sample.Name, WIDqEC, WIDqEC_interpret) %>%
     dplyr::rename(SampleName = Sample.Name)
-  final$WIDqEC <- round(final$WIDqEC, digits=3)
+  final$WIDqEC <- format(final$WIDqEC, digits=3)
   
   samples <- samples[!samples %in% c("STD_1","STD_2","STD_3","STD_4","PosCo","NTC_H2O")]
   
