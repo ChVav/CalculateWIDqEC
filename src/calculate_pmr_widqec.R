@@ -230,9 +230,11 @@ calculate_pmr <- function(data,#experimentname,
   # samples for which both reps COL2A1 failed, PMR should not be 0, but should be NA
   if(!is_empty(low_input_fail)){
     samples_failed <- low_input_fail %>% filter(!sample %in% c("NTC","NTC_H2O")) %>% unique() %>% pull(sample)
-    for (i in 2:(length(targets2)+3)){
-      for (j in 1:length(samples_failed)){
-        results[results$Sample.Name==samples_failed[j],i]<- NA
+    if(!is_empty(samples_failed)){
+      for (i in 2:(length(targets2)+3)){
+        for (j in 1:length(samples_failed)){
+          results[results$Sample.Name==samples_failed[j],i]<- NA
+        }
       }
     }
   }
