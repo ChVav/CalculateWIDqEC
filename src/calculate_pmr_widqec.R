@@ -194,7 +194,7 @@ calculate_pmr <- function(data,#experimentname,
   
   # Fully methylated DNA (SSS1 or gBlock) - only gBlock implemented
   gblock <- data1 %>%
-    filter(Sample.Name %in% c("PosCo","gBlock", "gBLOCK", "gBlock (+)")) 
+    filter(Sample.Name %in% c("posCo","PosCo","gBlock", "gBLOCK", "gBlock (+)")) 
   
   # For each ref gene divide normalized input sample by normalized input fully methylated DNA *100
   results <- data1
@@ -229,7 +229,7 @@ calculate_pmr <- function(data,#experimentname,
   
   # samples for which both reps COL2A1 failed, PMR should not be 0, but should be NA
   if(!is_empty(low_input_fail)){
-    samples_failed <- low_input_fail %>% filter(!sample == "NTC_H2O") %>% unique() %>% select(sample) %>% as.character()
+    samples_failed <- low_input_fail %>% filter(!sample %in% c("NTC","NTC_H2O")) %>% unique() %>% pull(sample)
     for (i in 2:(length(targets2)+3)){
       for (j in 1:length(samples_failed)){
         results[results$Sample.Name==samples_failed[j],i]<- NA
@@ -270,12 +270,12 @@ calculate_pmr <- function(data,#experimentname,
   
   # make the final summary
   final <- results %>%
-    filter(!Sample.Name %in% c("STD_1","STD_2","STD_3","STD_4","PosCo","NTC_H2O")) %>%
+    filter(!Sample.Name %in% c("STD_1","STD_2","STD_3","STD_4","posCo","PosCo","NTC_H2O","NTC")) %>%
     select(Sample.Name, WIDqEC, WIDqEC_interpret) %>%
     dplyr::rename(SampleName = Sample.Name)
-  final$WIDqEC <- format(final$WIDqEC, digits=3)
+  final$WIDqEC <- format(final$WIDqEC, nsmall=3, scientific=FALSE)
   
-  samples <- samples[!samples %in% c("STD_1","STD_2","STD_3","STD_4","PosCo","NTC_H2O")]
+  samples <- samples[!samples %in% c("STD_1","STD_2","STD_3","STD_4","posCo","PosCo","NTC_H2O","NTC")]
   
   QC <- data.frame(SampleName = samples)
   
