@@ -1,7 +1,7 @@
 # PMR calculation main work function
 # contact: charlottevavourakis@gmail.com
 # under development for Shiny App version for TirolPath
-# Last update 21 August 2022
+# Last update 31 August 2022
 
 calculate_pmr <- function(data,#experimentname,
                           threshold_COL2A1=35,

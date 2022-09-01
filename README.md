@@ -1,7 +1,7 @@
 
 The purpose of the WID-qEC is to estimate the risk for endometrial and/or cervical cancer based on the methylation status of DNA recovered from cervical smear samples, assayed with MethyLight.
 
-The CalculateWIDqEC App needs the exported "Results file" from Quantstudio, and assumes the export has been done using the correct sampleIDs, targets and fixed Ct thresholds.
+The CalculateWIDqEC App needs the exported "Results file" from Quantstudio 5 Design & Analysis Software in as tab-separated .txt, and assumes the export has been done using the correct sampleIDs, targets and fixed Ct thresholds.
 
 ## Instructions
 

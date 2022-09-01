@@ -1,9 +1,10 @@
 
-# input is fixed to uploading one results file exported from Quantstudio
+# input is fixed to uploading one results file exported from Quantstudio 5, .txt format
 # ! will have to check naming of the standards and controls!!!
 # output files are in a .zip
 # pic of the standard curve
 # Excel workbook with all processed info (PMR for all targets, Ct+SD, DNA input, analysis reps)
+# Final csv file that is imported for commercial WIDqEC into Swisslab
 
 # load libraries
 library(shiny)
