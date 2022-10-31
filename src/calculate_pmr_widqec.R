@@ -1,11 +1,12 @@
 # PMR calculation main work function
 # contact: charlottevavourakis@gmail.com
 # under development for Shiny App version for TirolPath
-# Last update 31 August 2022
+# Last update 31 Oktober 2022
 
 calculate_pmr <- function(data,#experimentname,
-                          threshold_COL2A1=35,
-                          external_curve=FALSE,
+                          threshold_COL2A1=30,
+                          threshold_targets=38,
+                          external_curve=FALSE, #these and parameters below are not used
                           curve=NULL,
                           fix_intercept=36.9,
                           fix_slope=-3.4,
@@ -83,7 +84,10 @@ calculate_pmr <- function(data,#experimentname,
   data <- data %>%
     mutate(rep = case_when(grepl("A|C|E|G|I|K|M|O", Well.Position) == TRUE ~ 1,
                            grepl("B|D|F|H|J|L|N|P", Well.Position) == TRUE ~ 2)) %>%
-    mutate(ct = as.numeric(ifelse(CT == "Undetermined", NA, CT)))
+    mutate(ct = as.numeric(ifelse(CT > threshold_targets, NA, CT)))
+  
+  # set suspicious amplifications to NA
+  data <- data %>% mutate(ct)
   
   # collect target and sample overviews
   targets <- unique(data$Target.Name)
