@@ -93,6 +93,7 @@ calculate_pmr <- function(data,#experimentname,
   targets <- unique(data$Target.Name)
   targets2 <- targets[!targets %in% "COL2A1"]
   samples <- unique(data$Sample.Name)
+  samplesNoctrl <- setdiff(samples,c("STD1", "STD2", "STD3","STD4","STD_1", "STD_2", "STD_3", "STD_4","Std 1", "Std 2", "Std 3", "Std 4","Std_1", "Std_2", "Std_3", "Std_4","Std. 1", "Std. 2", "Std. 3", "Std. 4","NTC_H2O","NTC", "H2O")) #but include gBlocks C("posCo","PosCo","gBlock", "gBLOCK", "gBlock (+)")
   
   # For each rep evaluate COL2A1 and add a column PASS/FAIL for filtering data
   df <- NULL
@@ -243,7 +244,7 @@ calculate_pmr <- function(data,#experimentname,
     }
   }
 
-  # Save results to list ---
+  # collect results mean+SD CT
   data1 <- data1 %>%
     select(Sample.Name, COL2A1, all_of(targets2)) %>%
     as.data.frame()
@@ -252,27 +253,43 @@ calculate_pmr <- function(data,#experimentname,
     select(Sample.Name, COL2A1, all_of(targets2)) %>%
     as.data.frame()
   
-  list_out[[2]] <- results #PMR + WIDqEC + WIDqEC outcome
-  list_out[[3]] <- data1 #mean CT
-  list_out[[4]] <- data2 #stdev CT
-  list_out[[5]] <- conc_input #log(copy number/5uL)
-  if(is_empty(low_input_fail)){
-    list_out[[6]] <- as.data.frame("you have some amplification in the NTC_H2O")
+  # Additional warning for When COL2A1 passed for both reps but CT stdev > 2CT
+  warning = data2 %>% 
+    select(Sample.Name,COL2A1) %>%
+    mutate(Warning.SD.COL2A1 = case_when(COL2A1 > 1.5 ~ "warning SD > 1.5 CT", TRUE ~ "PASS"))
+  
+  if(any(warning$Warning.SD.COL2A1== "warning SD > 1.5 CT")){
+    warning = warning %>% filter(Warning.SD.COL2A1=="warning SD > 1.5 CT")
   } else{
-    list_out[[6]] <- low_input_fail #samples for which COL2A1 failed in both reps, should have negative controls
-  }
-
-  if(!is_empty(reprocess_needed)){ # samples for which for only one of two reps COL2A1 failed
-    list_out[[7]] <- reprocess_needed
-  } else {
-    list_out[[7]] <- as.data.frame("none")
+    warning = NULL
   }
   
-  if(!is_empty(reprocess)){ # samples for which for only one of two reps target amplified
-    list_out[[8]] <- reprocess
-  } else {
-    list_out[[8]] <- as.data.frame("none")
-  }
+  #plot
+  ### transform data frames to long format, combine dataframes, drop NAs, select samples only
+  Ct_means <- pivot_longer(data1,!Sample.Name, names_to = "Target", values_to = "Ct_mean")
+  Ct_sd <- pivot_longer(data2,!Sample.Name, names_to = "Target", values_to = "Ct_sd")
+  df <- full_join(Ct_means, Ct_sd) %>%
+    drop_na() %>%
+    filter(Sample.Name %in% samplesNoctrl)
+  
+  ### plot output depends on number of 
+  # plot processed data all targets and save
+  plot <- df %>%
+    filter(Target=="COL2A1") %>%
+    ggplot(aes(x=Sample.Name, y=Ct_mean)) +
+    geom_point()+
+    geom_errorbar(aes(ymin=Ct_mean-Ct_sd, ymax=Ct_mean+Ct_sd), width=0.5) +
+    #facet_wrap(~target) +
+    xlab("") + #rename axis text label
+    ylab("Ct (mean)") +
+    theme_minimal() +
+    theme(axis.title.x=element_text(size=12),
+          axis.title.y=element_text(size=12),
+          axis.text.x=element_text(size=5,angle=60,hjust=1),
+          axis.text.y=element_text(size=12),
+          legend.text=element_text(size=12),
+          legend.title = element_blank(),
+          legend.key.size= unit(6, "mm"))
   
   # make the final summary
   final <- results %>%
@@ -289,21 +306,56 @@ calculate_pmr <- function(data,#experimentname,
   QC <- QC %>%
     mutate(QC=case_when(
      SampleName %in% low_input_fail$sample ~ "Insufficient DNA", #COL2A1 did not amplify in any of the reps 
-      SampleName %in% list_out[[7]][,1] ~ "Reprocessing recommended, insufficient DNA in one rep", # samples for which for only one of two reps COL2A1 failed
-      SampleName %in% list_out[[8]][,1] ~ "Some targets only amplified in one of the reps",
-      TRUE ~ "PASS" #all ok
+     SampleName %in% reprocess_needed[,1] ~ "Reprocessing recommended, insufficient DNA in one rep", # samples for which for only one of two reps COL2A1 failed
+     SampleName %in% reprocess[,1] & !SampleName %in% warning[,1] ~ "Some targets only amplified in one of the reps",
+     !SampleName %in% reprocess[,1] & SampleName %in% warning[,1] ~ "STDEV CT COL2A1 exceeds 1.5 cycles",
+     SampleName %in% reprocess[,1] & SampleName %in% warning[,1] ~ "Some targets only amplified in one of the reps;STDEV CT COL2A1 exceeds 1.5 cycles",
+     TRUE ~ "PASS" #all ok
     ))} else{
       QC <- QC %>%
         mutate(QC=case_when(
-          SampleName %in% list_out[[7]][,1] ~ "Reprocessing recommended, insufficient DNA in one rep", # samples for which for only one of two reps COL2A1 failed
-          SampleName %in% list_out[[8]][,1] ~ "Some targets only amplified in one of the reps",
+          SampleName %in% reprocess_needed[,1] ~ "Reprocessing recommended, insufficient DNA in one rep", # samples for which for only one of two reps COL2A1 failed
+          SampleName %in% reprocess[,1] & !SampleName %in% warning[,1] ~ "Some targets only amplified in one of the reps",
+          !SampleName %in% reprocess[,1] & SampleName %in% warning[,1] ~ "STDEV CT COL2A1 exceeds 1.5 cycles",
+          SampleName %in% reprocess[,1] & SampleName %in% warning[,1] ~ "Some targets only amplified in one of the reps;STDEV CT COL2A1 exceeds 1.5 cycles",
           TRUE ~ "PASS" #all ok
         ))
     }
   
   final <- full_join(final,QC)
   
-  list_out[[9]] <- final #information in final csv file
+  # Save results to list ---
+  list_out[[2]] <- results #PMR + WIDqEC + WIDqEC outcome
+  list_out[[3]] <- data1 #mean CT
+  list_out[[4]] <- data2 #stdev CT
+  list_out[[5]] <- conc_input #log(copy number/5uL)
+  if(is_empty(low_input_fail)){
+    list_out[[6]] <- as.data.frame("you have some amplification in the NTC_H2O")
+  } else{
+    list_out[[6]] <- low_input_fail #samples for which COL2A1 failed in both reps, should have negative controls
+  }
+  
+  if(!is_empty(reprocess_needed)){ # samples for which for only one of two reps COL2A1 failed
+    list_out[[7]] <- reprocess_needed
+  } else {
+    list_out[[7]] <- as.data.frame("none")
+  }
+  
+  if(!is_empty(reprocess)){ # samples for which for only one of two reps target amplified
+    list_out[[8]] <- reprocess
+  } else {
+    list_out[[8]] <- as.data.frame("none")
+  }
+  
+  if(!is_empty(warning)){ #marks samples for which STDEV COL2A > 2CT (QC warning)
+    list_out[[9]] = warning
+  } else {
+    list_out[[9]] = as.data.frame("none")
+  }
+  
+  list_out[[10]] <- plot #mean CT COL2A1
+  
+  list_out[[11]] <- final #information in final csv file
   
   return(list_out)
 }
