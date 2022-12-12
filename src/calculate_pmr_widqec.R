@@ -1,11 +1,12 @@
 # PMR calculation main work function
 # contact: charlottevavourakis@gmail.com
 # under development for Shiny App version for TirolPath
-# Last update 31 Oktober 2022
+# Last update 3 November 2022
 
 calculate_pmr <- function(data,#experimentname,
                           threshold_COL2A1=30,
                           threshold_targets=38,
+                          threshold_targets_warning=35,
                           external_curve=FALSE, #these and parameters below are not used
                           curve=NULL,
                           fix_intercept=36.9,
@@ -79,16 +80,11 @@ calculate_pmr <- function(data,#experimentname,
   }
   
   # reformat data in results file based on thresholds and replication ----
-  
-  # Carry on with CT means
   data <- data %>%
     mutate(rep = case_when(grepl("A|C|E|G|I|K|M|O", Well.Position) == TRUE ~ 1,
                            grepl("B|D|F|H|J|L|N|P", Well.Position) == TRUE ~ 2)) %>%
-    mutate(ct = as.numeric(ifelse(CT > threshold_targets, NA, CT)))
-  
-  # set suspicious amplifications to NA
-  data <- data %>% mutate(ct)
-  
+    mutate(ct = as.numeric(ifelse(CT > threshold_targets | Amp.Status=="No Amp", NA, CT))) # set suspicious amplifications to NA
+    
   # collect target and sample overviews
   targets <- unique(data$Target.Name)
   targets2 <- targets[!targets %in% "COL2A1"]
@@ -122,6 +118,12 @@ calculate_pmr <- function(data,#experimentname,
   }
   
   data <- left_join(data, df, by=c("Sample.Name","rep"))
+  
+  # Flag reactions with high ct
+  flagged <- data %>% 
+    mutate(flag=case_when(ct >= threshold_targets_warning ~ paste0("CT higher than ",threshold_targets_warning), TRUE ~"")) %>%
+    select(Well.Position,Sample.Name,Target.Name,rep,ct,COL2A1_check,flag) %>%
+    filter(flag != "")
   
   # When both reps of a sample are undetermined or above the set threshold for COL2A1,
   # DNA input for this sample was too low, and no PMR could be calculated.
@@ -170,6 +172,7 @@ calculate_pmr <- function(data,#experimentname,
     }
   }
   
+  # Carry on with ct means
   data1 <- data %>%
     pivot_wider(id_cols = Sample.Name,
                 names_from = Target.Name,
@@ -253,7 +256,7 @@ calculate_pmr <- function(data,#experimentname,
     select(Sample.Name, COL2A1, all_of(targets2)) %>%
     as.data.frame()
   
-  # Additional warning for When COL2A1 passed for both reps but CT stdev > 2CT
+  # Additional warning for When COL2A1 passed for both reps but CT stdev > 1.5 CT
   warning = data2 %>% 
     select(Sample.Name,COL2A1) %>%
     mutate(Warning.SD.COL2A1 = case_when(COL2A1 > 1.5 ~ "warning SD > 1.5 CT", TRUE ~ "PASS"))
@@ -347,15 +350,21 @@ calculate_pmr <- function(data,#experimentname,
     list_out[[8]] <- as.data.frame("none")
   }
   
-  if(!is_empty(warning)){ #marks samples for which STDEV COL2A > 2CT (QC warning)
-    list_out[[9]] = warning
+  if(!is_empty(flagged)){ #reactions with high CT, current threshold set at 35
+    list_out[[9]] = flagged
   } else {
     list_out[[9]] = as.data.frame("none")
   }
   
-  list_out[[10]] <- plot #mean CT COL2A1
+  if(!is_empty(warning)){ #marks samples for which STDEV COL2A > 1.5 CT (QC warning)
+    list_out[[10]] = warning
+  } else {
+    list_out[[10]] = as.data.frame("none")
+  }
   
-  list_out[[11]] <- final #information in final csv file
+  list_out[[11]] <- plot #mean CT COL2A1
+  
+  list_out[[12]] <- final #information in final csv file
   
   return(list_out)
 }
