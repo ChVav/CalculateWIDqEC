@@ -1,12 +1,12 @@
 # PMR calculation main work function
 # contact: charlottevavourakis@gmail.com
 # under development for Shiny App version for TirolPath
-# Last update 3 November 2022
+# Last update 19 January 2023
 
 calculate_pmr <- function(data,#experimentname,
                           threshold_COL2A1=30,
-                          threshold_targets=38,
-                          threshold_targets_warning=35,
+                          threshold_targets=35,
+                          threshold_targets_warning=30,
                           external_curve=FALSE, #these and parameters below are not used
                           curve=NULL,
                           fix_intercept=36.9,
@@ -83,9 +83,15 @@ calculate_pmr <- function(data,#experimentname,
   data <- data %>%
     mutate(rep = case_when(grepl("A|C|E|G|I|K|M|O", Well.Position) == TRUE ~ 1,
                            grepl("B|D|F|H|J|L|N|P", Well.Position) == TRUE ~ 2)) %>%
-    mutate(ct = as.numeric(ifelse(CT > threshold_targets | Amp.Status=="No Amp", NA, CT))) # set suspicious amplifications to NA
-    
-  # collect target and sample overviews
+    mutate(ct = as.numeric(ifelse(CT > threshold_targets | Amp.Status=="No Amp", NA, CT))) # set suspicious amplifications to NA for targets
+  
+  # set suspicious amplifications to NA for COL2A1
+  ind <- which(data$Target.Name == "COL2A1" & !data$Sample.Name %in% c("NTC_H2O","NTC", "H2O") & (data$CT > threshold_COL2A1 | data$Amp.Status=="No Amp"))
+  if(!is_empty(ind)){
+    data[ind,]$ct <- NA
+  }
+  
+  # collect target and sample overviews 
   targets <- unique(data$Target.Name)
   targets2 <- targets[!targets %in% "COL2A1"]
   samples <- unique(data$Sample.Name)
@@ -101,7 +107,8 @@ calculate_pmr <- function(data,#experimentname,
     subset1 <- subset1 %>%
       mutate(COL2A1_check =
                case_when( 
-      is.na(ct) | ct > threshold_COL2A1 ~ "FAIL", TRUE ~ "PASS")) %>%
+      is.na(ct) ~ "FAIL", TRUE ~"PASS")) %>%
+      #is.na(ct) | ct > threshold_COL2A1 ~ "FAIL", TRUE ~ "PASS")) %>%
       dplyr::select(Sample.Name,rep,COL2A1_check)
     df <- rbind(df,subset1)
     
@@ -112,27 +119,20 @@ calculate_pmr <- function(data,#experimentname,
     subset2 <- subset2 %>%
       mutate(COL2A1_check = 
                case_when( 
-      is.na(ct) | ct > threshold_COL2A1 ~ "FAIL", TRUE ~ "PASS")) %>%
+      is.na(ct) ~ "FAIL", TRUE ~"PASS")) %>%
+      #is.na(ct) | ct > threshold_COL2A1 ~ "FAIL", TRUE ~ "PASS")) %>%
       dplyr::select(Sample.Name,rep,COL2A1_check)
     df <- rbind(df,subset2)
   }
   
   data <- left_join(data, df, by=c("Sample.Name","rep"))
   
-  # Flag reactions with high ct
-  flagged <- data %>% 
-    mutate(flag=case_when(ct >= threshold_targets_warning ~ paste0("CT higher than ",threshold_targets_warning), TRUE ~"")) %>%
-    select(Well.Position,Sample.Name,Target.Name,rep,ct,COL2A1_check,flag) %>%
-    filter(flag != "")
-  
   # When both reps of a sample are undetermined or above the set threshold for COL2A1,
   # DNA input for this sample was too low, and no PMR could be calculated.
-  # If one out of two reps is undetermined or above the set threshold,
-  # sample should to be reprocessed (COL2A1) or reprocessing is recommended. 
-  # In these cases, one Ct value is taken forward. 
+  # If one out of two reps is undetermined or above the set threshold for COL2A1, the sample should be reprocessed.
+  # IF one out of two reps is undetermined or above the set threshold for the other targets, the respective amplification is disregarded (no ct value is taken forward) 
   low_input_fail <- NULL # negative control should always endup here
-  reprocess_needed <- NULL
-  reprocess <- NULL
+  reprocess_needed <- NULL # one of two COL2A1 reps failed
   
   for (s in samples){
     for(t in targets){
@@ -140,37 +140,33 @@ calculate_pmr <- function(data,#experimentname,
         filter(Sample.Name == s & Target.Name == t) %>%
         dplyr::select(Sample.Name, rep, ct, COL2A1_check)
       
-      if(t == "COL2A1" & all(tmp$COL2A1_check=="FAIL")){
-        # if target is COL2A1 and both reps fail, sample should be listed under low_input_fail
-        x <- data.frame(sample = tmp$Sample.Name, COL2A1_Ct = tmp$ct)
-        low_input_fail <- rbind(low_input_fail, x)
-      }
-      
       if(any(is.na(tmp$ct)) && any(!is.na(tmp$ct))){
-        # Carry one Ct value forward
-        und <- sum(is.na(tmp$ct))
-        ind1 <- na.omit(data$Sample.Name == s & data$Target.Name == t)
-        ct <- ifelse(und < 2, na.omit(tmp$ct), NA)
-        data[ind1,]$ct <- ct
+        # set non-replicated amplification to NA
+        ind <- which((data$Sample.Name == s & data$Target.Name == t & !is.na(data$ct)))
+        data[ind,]$ct <- NA
         
         if(t == "COL2A1"){
-          # reprocessing required
+          # list sample as reprocessing required
           x <- data.frame(sample = tmp$Sample.Name[is.na(tmp$ct)],
                           rep = tmp$rep[is.na(tmp$ct)],
                           target = t,
                           `COL2A1_check (this replicate)` = tmp$COL2A1_check[is.na(tmp$ct)])
           reprocess_needed <- rbind(reprocess_needed,x)
-        } else {
-          # reprocessing recommended
-          x <- data.frame(sample = tmp$Sample.Name[is.na(tmp$ct)],
-                          rep = tmp$rep[is.na(tmp$ct)],
-                          target = t,
-                          `COL2A1_check (this replicate)` = tmp$COL2A1_check[is.na(tmp$ct)])
-          reprocess <- rbind(reprocess,x)
+        }}
+      
+      if(t == "COL2A1" & all(tmp$COL2A1_check=="FAIL")){
+        # if target is COL2A1 and both reps fail, sample should be listed under low_input_fail
+        x <- data.frame(sample = tmp$Sample.Name, COL2A1_Ct = tmp$ct)
+        low_input_fail <- rbind(low_input_fail, x)
         }
-      }
     }
   }
+  
+  # Flag reactions with high ct (after removing spurious amplification)
+  flagged <- data %>% 
+    mutate(flag=case_when(ct >= threshold_targets_warning ~ paste0("CT below threshold ", threshold_targets,", but still higher than ",threshold_targets_warning), TRUE ~"")) %>%
+    select(Well.Position,Sample.Name,Target.Name,rep,ct,COL2A1_check,flag) %>%
+    filter(flag != "")
   
   # Carry on with ct means
   data1 <- data %>%
@@ -246,7 +242,17 @@ calculate_pmr <- function(data,#experimentname,
       }
     }
   }
-
+  
+  # samples for which one rep of COL2A1 failed, PMR should not be 0, but should be NA
+  if(!is_empty(reprocess_needed)){
+    samples_failed <- reprocess_needed %>% pull(sample)
+    for (i in 2:(length(targets2)+3)){
+      for (j in 1:length(samples_failed)){
+        results[results$Sample.Name==samples_failed[j],i]<- NA
+      }
+    }
+  }
+    
   # collect results mean+SD CT
   data1 <- data1 %>%
     select(Sample.Name, COL2A1, all_of(targets2)) %>%
@@ -305,25 +311,13 @@ calculate_pmr <- function(data,#experimentname,
   
   QC <- data.frame(SampleName = samples)
   
-  if(!is_empty(low_input_fail)){
   QC <- QC %>%
     mutate(QC=case_when(
-     SampleName %in% low_input_fail$sample ~ "Insufficient DNA", #COL2A1 did not amplify in any of the reps 
-     SampleName %in% reprocess_needed[,1] ~ "Reprocessing recommended, insufficient DNA in one rep", # samples for which for only one of two reps COL2A1 failed
-     SampleName %in% reprocess[,1] & !SampleName %in% warning[,1] ~ "Some targets only amplified in one of the reps",
-     !SampleName %in% reprocess[,1] & SampleName %in% warning[,1] ~ "STDEV CT COL2A1 exceeds 1.5 cycles",
-     SampleName %in% reprocess[,1] & SampleName %in% warning[,1] ~ "Some targets only amplified in one of the reps;STDEV CT COL2A1 exceeds 1.5 cycles",
+     SampleName %in% low_input_fail$sample ~ "Insufficient DNA in both reps", #COL2A1 did not amplify in any of the reps 
+     SampleName %in% reprocess_needed[,1] ~ "Reprocessing needed, insufficient DNA in one rep", # samples for which for only one of two reps COL2A1 failed
+     SampleName %in% warning[,1] ~ "STDEV CT COL2A1 exceeds 1.5 cycles",
      TRUE ~ "PASS" #all ok
-    ))} else{
-      QC <- QC %>%
-        mutate(QC=case_when(
-          SampleName %in% reprocess_needed[,1] ~ "Reprocessing recommended, insufficient DNA in one rep", # samples for which for only one of two reps COL2A1 failed
-          SampleName %in% reprocess[,1] & !SampleName %in% warning[,1] ~ "Some targets only amplified in one of the reps",
-          !SampleName %in% reprocess[,1] & SampleName %in% warning[,1] ~ "STDEV CT COL2A1 exceeds 1.5 cycles",
-          SampleName %in% reprocess[,1] & SampleName %in% warning[,1] ~ "Some targets only amplified in one of the reps;STDEV CT COL2A1 exceeds 1.5 cycles",
-          TRUE ~ "PASS" #all ok
-        ))
-    }
+    ))
   
   final <- full_join(final,QC)
   
@@ -338,33 +332,27 @@ calculate_pmr <- function(data,#experimentname,
     list_out[[6]] <- low_input_fail #samples for which COL2A1 failed in both reps, should have negative controls
   }
   
-  if(!is_empty(reprocess_needed)){ # samples for which for only one of two reps COL2A1 failed
+  if(!is_empty(reprocess_needed)){ # samples for which one of two reps COL2A1 failed
     list_out[[7]] <- reprocess_needed
   } else {
     list_out[[7]] <- as.data.frame("none")
   }
   
-  if(!is_empty(reprocess)){ # samples for which for only one of two reps target amplified
-    list_out[[8]] <- reprocess
+  if(!is_empty(flagged)){ #reactions with high CT, current threshold set at 30
+    list_out[[8]] = flagged
   } else {
-    list_out[[8]] <- as.data.frame("none")
+    list_out[[8]] = as.data.frame("none")
   }
   
-  if(!is_empty(flagged)){ #reactions with high CT, current threshold set at 35
-    list_out[[9]] = flagged
+  if(!is_empty(warning)){ #marks samples for which STDEV COL2A > 1.5 CT (QC warning)
+    list_out[[9]] = warning
   } else {
     list_out[[9]] = as.data.frame("none")
   }
   
-  if(!is_empty(warning)){ #marks samples for which STDEV COL2A > 1.5 CT (QC warning)
-    list_out[[10]] = warning
-  } else {
-    list_out[[10]] = as.data.frame("none")
-  }
+  list_out[[10]] <- plot #mean CT COL2A1
   
-  list_out[[11]] <- plot #mean CT COL2A1
-  
-  list_out[[12]] <- final #information in final csv file
+  list_out[[11]] <- final #information in final csv file
   
   return(list_out)
 }

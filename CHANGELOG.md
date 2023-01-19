@@ -1,3 +1,10 @@
+## [0.3.0] - 19.01.2023
+
+## Changed
+* CT threshold all targets excpet COL2A1 now 35 (more stringent, previously 38)
+* if GYPC1, GYPC2 or ZSCAN12 ampilfies only in one of two replicates, this amplification is disregarded. 
+* lowered threshold for warning high CT to 30 (previously at 35).
+
 
 ## [0.2.0] - 03.11.2022
 

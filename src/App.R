@@ -93,7 +93,7 @@ server <- function(input, output) {
              height = 4) 
       
       # save CT plot to temporary dir
-      ggsave(myResults()[[11]],
+      ggsave(myResults()[[10]],
              file = paste0(temp_dir, "/","CTCOL2A1_MeanStdev.png"),
              width = 85,
              height = 80,
@@ -102,29 +102,27 @@ server <- function(input, output) {
       # save batched results to temporary dir
       wb <- createWorkbook()
       
-      addWorksheet(wb, "PMR Values")
-      writeDataTable(wb = wb, sheet = 1, x = myResults()[[2]], rowNames=FALSE) #PMRs
-      addWorksheet(wb, "Cq mean")
-      writeDataTable(wb = wb, sheet = 2, x = myResults()[[3]], rowNames=FALSE) #mean Cq
-      addWorksheet(wb, "Cq SD")
-      writeDataTable(wb = wb, sheet = 3, x = myResults()[[4]], rowNames=FALSE) #Cq stdev
-      addWorksheet(wb, "Input conc")
-      writeDataTable(wb=wb, sheet = 4, x = myResults()[[5]], rowNames=FALSE) #log(copy number/5uL)
-      addWorksheet(wb, "low DNA input")
-      writeDataTable(wb=wb, sheet = 5, x = myResults()[[6]], rowNames=FALSE) #samples for which COL2A1 failed in both reps, should have negative controls
-      addWorksheet(wb, "Reprocessing needed")
-      writeDataTable(wb = wb, sheet = 6, x = myResults()[[7]], rowNames=FALSE) # samples for which for only one of two reps COL2A1 failed
-      addWorksheet(wb, "Reprocessing recommended")
-      writeDataTable(wb = wb, sheet =7, x = myResults()[[8]], rowNames=FALSE) # samples for which for only one of two reps target amplified
-      addWorksheet(wb, "Warning high CT values")
-      writeDataTable(wb=wb, sheet = 8, x= myResults()[[9]], rowNames=FALSE)# samples for which targets are below threshold, but still high
-      addWorksheet(wb, "Warning COL2A1 SD high")
-      writeDataTable(wb=wb, sheet = 9, x= myResults()[[10]], rowNames=FALSE)# samples for which SD CT COL2A1 > 1.5
+      addWorksheet(wb, "PMR Values") #PMRs
+      writeDataTable(wb = wb, sheet = 1, x = myResults()[[2]], rowNames=FALSE) 
+      addWorksheet(wb, "Cq mean") #mean Cq
+      writeDataTable(wb = wb, sheet = 2, x = myResults()[[3]], rowNames=FALSE) 
+      addWorksheet(wb, "Cq SD") #Cq stdev
+      writeDataTable(wb = wb, sheet = 3, x = myResults()[[4]], rowNames=FALSE) 
+      addWorksheet(wb, "Input conc") #log(copy number/5uL)
+      writeDataTable(wb=wb, sheet = 4, x = myResults()[[5]], rowNames=FALSE) 
+      addWorksheet(wb, "low DNA input") #samples for which COL2A1 failed in both reps, should have negative controls
+      writeDataTable(wb=wb, sheet = 5, x = myResults()[[6]], rowNames=FALSE) 
+      addWorksheet(wb, "Reprocessing needed") # samples for which for only one of two reps COL2A1 failed
+      writeDataTable(wb = wb, sheet = 6, x = myResults()[[7]], rowNames=FALSE) 
+      addWorksheet(wb, "Warning high CT values") # samples for which targets are below threshold, but still high
+      writeDataTable(wb=wb, sheet = 7, x= myResults()[[8]], rowNames=FALSE)
+      addWorksheet(wb, "Warning COL2A1 SD high") # samples for which SD CT COL2A1 > 1.5
+      writeDataTable(wb=wb, sheet = 8, x= myResults()[[9]], rowNames=FALSE)
 
       saveWorkbook(wb, paste0(temp_dir, "/","batch_results.xlsx"))
       
       # save final result summary separately to temporary dir
-      write.csv(myResults()[[12]], 
+      write.csv(myResults()[[11]], 
                 file=paste0(temp_dir, "/", "final_results.csv"), 
                 row.names=FALSE, 
                 fileEncoding = "UTF-8")
