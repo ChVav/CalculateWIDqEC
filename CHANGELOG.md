@@ -1,4 +1,4 @@
-## [0.3.0] - 19.01.2023
+## [0.4.0] - 19.01.2023
 
 ## Changed
 * CT threshold all targets excpet COL2A1 now 35 (more stringent, previously 38)
