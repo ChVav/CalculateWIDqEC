@@ -314,7 +314,7 @@ calculate_pmr <- function(data,#experimentname,
   QC <- QC %>%
     mutate(QC=case_when(
      SampleName %in% low_input_fail$sample ~ "Insufficient DNA in both reps", #COL2A1 did not amplify in any of the reps 
-     SampleName %in% reprocess_needed[,1] ~ "Reprocessing needed, insufficient DNA in one rep", # samples for which for only one of two reps COL2A1 failed
+     SampleName %in% reprocess_needed[,1] ~ "Reprocessing needed insufficient DNA in one rep", # samples for which for only one of two reps COL2A1 failed
      SampleName %in% warning[,1] ~ "STDEV CT COL2A1 exceeds 1.5 cycles",
      TRUE ~ "PASS" #all ok
     ))
